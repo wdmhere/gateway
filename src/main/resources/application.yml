@@ -1,0 +1,47 @@
+spring:
+  application:
+    name: jweb-eautoopen-gateway
+  profiles:
+    active: ${cfg.env}
+
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true   #开启基于注册中心的路由表。gateway可以通过开启以下配置来打开根据服务的serviceId来匹配路由
+      default-filters:
+      routes:    #路由配置：断言
+        - id: open-platform
+          uri: http://1351351   #uri: lb://JWEB-EAUTOOPEN  #跳转地址
+          predicates:
+          - Path=/open/platform/** #拦截条件
+#          - Method=POST
+          filters:
+#            - StripPrefix=1   截取原始请求地址位数，然后将剩余地址拼接到uri
+            - name: Hystrix    # 熔断降级配置
+              args:
+                name: fallback    #hystrixcommond会找到此name
+                fallbackUri: forward:/normalfallback   # forward: 后面就是降级地址
+
+server:
+  port: 3299
+  tomcat:
+    uri-encoding: UTF-8
+
+eureka:
+  instance:
+    preferIpAddress: true
+    instance-id: ${spring.cloud.client.ipAddress}:${server.port}
+
+
+
+# hystrix 信号量隔离，3秒后自动超时
+hystrix:
+  command:
+    fallback:
+      execution:
+        isolation:
+          strategy: SEMAPHORE
+          thread:
+            timeoutInMilliseconds: 3000
+  shareSecurityContext: true
