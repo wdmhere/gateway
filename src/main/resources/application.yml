@@ -12,12 +12,13 @@ spring:
       default-filters:
       routes:    #路由配置：断言
         - id: open-platform
-          uri: http://1351351   #uri: lb://JWEB-EAUTOOPEN  #跳转地址
-          predicates:
-          - Path=/open/platform/** #拦截条件
-#          - Method=POST
+          uri: http://localhost:3200  #uri: lb://JWEB-EAUTOOPEN  #跳转地址
+          predicates:  # 路由规则，如失败则返回404
+          - Path=/platform/open/**  #拦截条件
+          - Method=GET    #限定请求类型
           filters:
-#            - StripPrefix=1   截取原始请求地址位数，然后将剩余地址拼接到uri
+            - PreserveHostHeader  #送原始host header
+            - PrefixPath=/open/template    #将地址拼接到uri最前面
             - name: Hystrix    # 熔断降级配置
               args:
                 name: fallback    #hystrixcommond会找到此name
@@ -38,10 +39,15 @@ eureka:
 # hystrix 信号量隔离，3秒后自动超时
 hystrix:
   command:
-    fallback:
+    fallback:   #定制断路时间
       execution:
         isolation:
           strategy: SEMAPHORE
           thread:
-            timeoutInMilliseconds: 3000
+            timeoutInMilliseconds: 10000
+    defualt:   #默认断路时间
+      execution:
+        isolation:
+          thread:
+            timeoutInMilliseconds: 30000
   shareSecurityContext: true
