@@ -1,6 +1,5 @@
 package com.ha.net.eautoopen.util;
 
-import org.apache.commons.lang3.time.DateUtils;
 import org.springframework.util.StringUtils;
 
 import java.sql.Timestamp;
@@ -389,18 +388,6 @@ public class DateCalcUtil {
         return calendar.getTime();
     }
 
-    public  static Date paseGHDate(String  dateString){
-        if (StringUtils.isEmpty(dateString)) {
-            return null;
-        }
-        String[]  dateFormats ={"yyyy-MM-dd","yyyy-MM-dd HH:mm:ss"};
-        try {
-            return  DateUtils.parseDate(dateString, dateFormats);
-        } catch (ParseException e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
 
     /**
      * 时间+1

@@ -1,8 +1,3 @@
-server:
-  port: 3299
-  tomcat:
-    uri-encoding: UTF-8
-
 spring:
   application:
     name: jweb-eautoopen-gateway
@@ -30,7 +25,7 @@ spring:
       default-filters:
       routes:    #路由配置：断言
         - id: open-platform
-          uri: lb://JWEB-EAUTOOPEN    #uri: lb://JWEB-EAUTOOPEN  eurake路由ID  ； uri: http://localhost:3200  直接地址
+          uri: lb://JAPP-EAUTOOPEN-LOGIN    #uri: lb://JWEB-EAUTOOPEN  eurake路由ID  ； uri: http://localhost:3200  直接地址
           predicates:  # 路由规则，如失败则返回404
             - Path=/platform/open/**  #拦截条件
             - Method=GET    #限定请求类型
@@ -41,12 +36,15 @@ spring:
               args:
                 name: fallback    #hystrixcommond会找到此name
                 fallbackUri: forward:/normalfallback   # forward: 后面就是降级地址
+            - name: Token
 
 
 
 
-
-
+server:
+  port: 3299
+  tomcat:
+    uri-encoding: UTF-8
 
 #注册中心
 eureka:
@@ -66,10 +64,10 @@ hystrix:
         isolation:
           strategy: SEMAPHORE
           thread:
-            timeoutInMilliseconds: 10000
+            timeoutInMilliseconds: 30000
     defualt:   #默认断路时间
       execution:
         isolation:
           thread:
-            timeoutInMilliseconds: 30000
+            timeoutInMilliseconds: 60000
   shareSecurityContext: true

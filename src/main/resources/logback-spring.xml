@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration scan="true" scanPeriod="60 seconds" debug="true" >
+
+    <contextName>logback</contextName>
+
+    <springProperty scope="context" name="spring-serverPort" source="server.port"
+                    defaultValue="8080"/>
+    <springProperty scope="context" name="spring-applicationName" source="spring.application.name"
+                    defaultValue="appName"/>
+    <!-- <springProperty scope="context" name="spring-logstashDestination" source="logstash.shipper.url"
+                    defaultValue="0.0.0.0:9998"/> -->
+
+    <property name="LOG_HOME" value="/app/open/logs/${spring.application.name:-${spring-applicationName}}-${cfg.env}-${server.port:-${spring-serverPort}}" />
+
+    <appender name="FILE"  class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <FileNamePattern>${LOG_HOME}/server.%d{yyyy-MM-dd}.log</FileNamePattern>
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%X{X-B3-TraceId},%X{X-B3-SpanId}] [%thread] %-5level %logger{100} - %msg%n</pattern>
+        </encoder>
+        <!--
+        <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%X{X-B3-TraceId},%X{X-B3-SpanId},%X{X-Span-Export}] [%thread] %-5level %logger{100} - %msg%n</pattern>
+        -->
+        <!--<triggeringPolicy class="ch.qos.logback.core.rolling.SizeBasedTriggeringPolicy">-->
+            <!--<maxFileSize>1000MB</maxFileSize>-->
+        <!--</triggeringPolicy>-->
+    </appender>
+
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <!-- <pattern>[req.id=%X{req.id}] %logger{100} %msg%n</pattern> -->
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%X{X-B3-TraceId},%X{X-B3-SpanId}] [%thread] %-5level %logger{100} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!--
+    <appender name="A_STASH" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
+        <destination>${spring-logstashDestination}</destination>
+        <encoder class="ch.qos.logback.core.encoder.EchoEncoder" />
+    </appender>
+    -->
+
+    <root level="INFO">
+        <appender-ref ref="STDOUT" />
+        <appender-ref ref="FILE" />
+    </root>
+
+    <logger name="com.ha.net" level="DEBUG"/>
+    <logger name="org.springframework" level="INFO"/>
+    <logger name="com.netflix" level="ERROR"/>
+    <!--
+       <logger name="LOG_STASH" level="INFO">
+           <appender-ref ref="A_STASH"/>
+       </logger>
+     -->
+
+</configuration>

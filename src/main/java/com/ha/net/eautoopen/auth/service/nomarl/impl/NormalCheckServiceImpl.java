@@ -19,17 +19,12 @@ public class NormalCheckServiceImpl implements NormalCheckService {
     /**
      * 查询缓存中的用户状态数据
      * @param consumer
-     * @param consumerCache
      * @return
      * @throws Exception
      */
     @Override
-    public Boolean check(String consumer, ConsumerCache consumerCache) throws Exception {
-        consumerCache = authCacheService.getConsumerCache(consumer);
-        if(consumerCache != null &&  LOGIN.equals(consumerCache.getIsLogin())){
-           return true;
-        }
-        return false;
+    public ConsumerCache check(String consumer) throws Exception {
+        return authCacheService.getConsumerCache(consumer);
     }
 
 }

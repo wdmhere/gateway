@@ -12,6 +12,7 @@ import com.ha.net.eautoopen.util.DateCalcUtil;
 import com.ha.net.eautoopen.util.MD5Util;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.math.RandomUtils;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -32,15 +33,17 @@ public class NormalBuildTokenServiceImpl extends BaseAuthService implements Norm
     @Override
     public Signature firstBuild(String consumer, ConsumerCache consumerCache) throws Exception {
 
-        String consumerKey = getConsumerKey(consumer);
+        String consumerKey = getConsumerKey(consumer+CONSUMER_CONFIG_KEY);
 
-        Signature signature = pakage(consumer,consumerCache);
+        ConsumerCache cache = initConsumerCache(consumerCache);
+
+        Signature signature = pakage(consumer,cache);
 
         String token = produceToken(signature,consumerKey);
 
         signature.setSgn(token);
 
-        initCache(consumer,consumerCache);
+        initCache(consumer,cache);
 
         return signature;
     }
@@ -51,11 +54,9 @@ public class NormalBuildTokenServiceImpl extends BaseAuthService implements Norm
 
         Signature signature = pakage2(consumer,consumerCache);
 
-        String token = produceToken(signature,consumerCache.getSign());
+        String token = produceDynToken(signature,consumerCache);
 
         signature.setSgn(token);
-
-        refreshCache(consumer,consumerCache);
 
         return signature;
     }
@@ -94,7 +95,7 @@ public class NormalBuildTokenServiceImpl extends BaseAuthService implements Norm
 
 
     /**
-     *  生成认证信息
+     *  生成认证信息，刷新缓存
      * @param consumer
      * @param consumerCache
      * @return
@@ -103,41 +104,37 @@ public class NormalBuildTokenServiceImpl extends BaseAuthService implements Norm
     private Signature pakage2(String consumer,ConsumerCache consumerCache) throws Exception {
         Signature signature = new Signature();
         signature.setAlg(ENCRYPTION_AES);
-
-        String dyn = "";
-        String jti = "";
-        Long nowTime = System.currentTimeMillis();
-
-        //是否过期
-        Boolean isExpired = false;
-
-        if(StringUtils.hasText(consumerCache.getTime()) &&
-                System.currentTimeMillis() - Long.valueOf(consumerCache.getTime()) > EXPIRATION_TIME ){
-            isExpired = true;
-        }
-
-        //过期需要重新生成新的
-        if(isExpired){
-            dyn = buildDyn(consumer);
-            jti = String.valueOf(RandomUtils.nextInt());
-            consumerCache.setSign(dyn);
-            consumerCache.setIsLogin(LOGIN);
-            consumerCache.setJwtid(jti);
-            consumerCache.setName(consumer);
-            consumerCache.setTime(String.valueOf(nowTime));
-        }else {
-            //没有过期则不处理
-        }
-
         Payload payload = new Payload();
         payload.setApt(consumer);
         payload.setAud(consumer);
-        payload.setDyn(isExpired ? dyn : payload.getDyn());
-        payload.setExp(isExpired ? DateCalcUtil.formatDatetime(new Date(nowTime)) : payload.getExp());
         payload.setIss(HA);
-        payload.setJti(isExpired ? jti : payload.getJti());
-        signature.setPld(payload);
+        //是否过期
+        Boolean isExpired = false;
+        Long nowTime = System.currentTimeMillis();
+        if(StringUtils.hasText(consumerCache.getTime()) && Long.valueOf(consumerCache.getTime()) > 0L &&
+                nowTime - Long.valueOf(consumerCache.getTime()) > EXPIRATION_TIME ){
+            isExpired = true;
+        }
+        //过期需要重新生成新的
+        if(isExpired){
+            String dyn = buildDyn(consumer);
+            String jti = String.valueOf(RandomUtils.nextInt());
+            ConsumerCache cache = new ConsumerCache();
+            cache.setSign(dyn);
+            cache.setIsLogin(LOGIN);
+            cache.setJwtid(jti);
+            cache.setName(consumer);
+            cache.setTime(String.valueOf(nowTime));
+            //刷新缓存
+            refreshCache(consumer,cache);
 
+            payload.setDyn(dyn);
+            payload.setExp(DateCalcUtil.formatDatetime(new Date(nowTime)));
+            payload.setJti(jti);
+        }else {
+            //没有过期则不处理
+        }
+        signature.setPld(payload);
         return signature;
     }
 
@@ -151,12 +148,14 @@ public class NormalBuildTokenServiceImpl extends BaseAuthService implements Norm
      */
     private String produceToken(Signature signature,String consumerKey)throws Exception{
         String old = signature.getAlg()+"."+ JSON.toJSONString(signature.getPld());
-        return AesEncryptUtils.encrypt(old, consumerKey);
+        return AesEncryptUtils.encrypt(old, MD5Util.encoderMD5(consumerKey));
     }
 
-    private String produceDynToken(Signature signature)throws Exception{
+    private String produceDynToken(Signature signature,ConsumerCache consumerCache)throws Exception{
+        if(signature == null || signature.getPld() == null || !StringUtils.hasText(signature.getPld().getDyn())) return "";
         String old = signature.getAlg()+"."+ JSON.toJSONString(signature.getPld());
-        return AesEncryptUtils.encrypt(old, signature.getPld().getDyn());
+        log.debug("produceDynToken`key is = " +consumerCache.getSign());
+        return AesEncryptUtils.encrypt(old, consumerCache.getSign());
     }
 
     /**
@@ -166,7 +165,9 @@ public class NormalBuildTokenServiceImpl extends BaseAuthService implements Norm
      * @throws Exception
      */
     private String buildDyn(String consumer)throws Exception{
-        return MD5Util.encoderMD5(consumer+"-"+getConsumerKey(consumer)+"-"+UUID.randomUUID().toString()).substring(0,16);
+        String dynKey = MD5Util.encoderMD5(consumer + "-" + getConsumerKey(consumer + CONSUMER_CONFIG_KEY) + "-" + UUID.randomUUID().toString()).substring(0, 16);
+        log.info("当前动态密钥为：" + dynKey);
+        return dynKey;
     }
 
 
@@ -179,7 +180,7 @@ public class NormalBuildTokenServiceImpl extends BaseAuthService implements Norm
         try {
             authCacheService.initConsumerCache(consumer,consumerCache != null ? JSON.toJSONString(consumerCache) : null);
         } catch (Exception e) {
-            log.error("刷新用户状态缓存异常：",e);
+            log.error("初始化用户状态缓存异常：",e);
         }
     }
 
@@ -193,12 +194,17 @@ public class NormalBuildTokenServiceImpl extends BaseAuthService implements Norm
         try {
             if(!StringUtils.hasText(consumerCache.getTime()))
                 throw new Exception("token缓存中失效时间为空！");
-            if(StringUtils.hasText(consumerCache.getTime()) &&
-                    System.currentTimeMillis() - Long.valueOf(consumerCache.getTime()) > EXPIRATION_TIME ){
-                authCacheService.setConsumerCache(consumer,consumerCache != null ? JSON.toJSONString(consumerCache) : null);
-            }
+            authCacheService.setConsumerCache(consumer,consumerCache != null ? JSON.toJSONString(consumerCache) : "");
         } catch (Exception e) {
             log.error("刷新用户状态缓存异常：",e);
         }
     }
+
+
+    private ConsumerCache initConsumerCache(ConsumerCache consumerCache){
+        if(consumerCache == null)
+            return new ConsumerCache();
+        return consumerCache;
+    }
+
 }

@@ -5,6 +5,7 @@ import com.ha.net.eautoopen.auth.service.base.BaseAuthService;
 import com.ha.net.eautoopen.auth.service.nomarl.AuthCacheService;
 import com.ha.net.eautoopen.auth.service.nomarl.NormalLoginService;
 import com.ha.net.eautoopen.dto.ConsumerCache;
+import com.ha.net.eautoopen.dto.Payload;
 import com.ha.net.eautoopen.dto.Signature;
 import com.ha.net.eautoopen.util.AesEncryptUtils;
 import com.ha.net.eautoopen.util.MD5Util;
@@ -42,8 +43,15 @@ public class NormalLoginServiceImpl extends BaseAuthService implements NormalLog
         String key = getPrivateKey(consumer);
         //保存约定私钥，后续不再读取缓存
         setKeyMap(consumer,key);
-        //解析签名
+        //解析签名,首次登录签名即用户标识
         Signature signature = parsingToken(key,headInfos);
+
+//        //首次登录根据约定规则“用户标识/私钥”进行MD564位加密生成密钥
+//        String param = AesEncryptUtils.decrypt(headInfos,MD5Util.encoderMD5(key));
+//        Signature signature = new Signature();
+//        Payload payload = new Payload();
+//        payload.setApt(param);
+//        signature.setPld(payload);
 
         return signature;
     }
@@ -79,7 +87,7 @@ public class NormalLoginServiceImpl extends BaseAuthService implements NormalLog
         //根据密钥解密
         String param = AesEncryptUtils.decrypt(value,realkey);
         //获得明文
-        Signature signature = JSON.parseObject(param, Signature.class);
+        Signature signature =  JSON.parseObject(param, Signature.class);
 
         return signature;
     }
@@ -87,7 +95,7 @@ public class NormalLoginServiceImpl extends BaseAuthService implements NormalLog
 
     private void setKeyMap(String name, String key){
         if(keyMap == null)
-            new HashMap<String,String>();
+            keyMap = new HashMap<String,String>();
         keyMap.put(name+CONSUMER_CONFIG_KEY,key);
         super.init(keyMap);
     }

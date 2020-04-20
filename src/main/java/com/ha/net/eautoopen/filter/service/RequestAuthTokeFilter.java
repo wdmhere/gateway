@@ -1,15 +1,14 @@
-package com.ha.net.eautoopen.filter;
+package com.ha.net.eautoopen.filter.service;
 
 
 import com.alibaba.fastjson.JSON;
 import com.ha.net.eautoopen.auth.handler.JwtAuthStandardHandler;
 import com.ha.net.eautoopen.auth.jwt.base.JwtBaseAuth;
-import com.ha.net.eautoopen.auth.jwt.base.impl.JwtGeneralAuth;
 import com.ha.net.eautoopen.config.exception.BussinessException;
 import com.ha.net.eautoopen.dto.ConsumerCache;
 import com.ha.net.eautoopen.dto.Signature;
-import com.ha.net.eautoopen.vo.RequestHead;
 import com.ha.net.eautoopen.vo.ErrorBody;
+import com.ha.net.eautoopen.vo.RequestHead;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -35,8 +34,8 @@ import static com.ha.net.eautoopen.constant.CacheConstant.*;
  */
 @Slf4j
 @RefreshScope
-//@Component
-public class TokenFilter implements GlobalFilter, Ordered {
+@Component
+public class RequestAuthTokeFilter {
 
     @Value("${jwt.wihte.list}")
     private String whiteList;
@@ -46,14 +45,11 @@ public class TokenFilter implements GlobalFilter, Ordered {
     @Autowired
     private JwtAuthStandardHandler jwtBaseAuth;
 
-    @Override
-    public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-        Boolean odd = false;
-        ErrorBody errorBody = null;
+    public Signature filter(ServerWebExchange exchange) {
         Signature rspSigntaure = null;
         try {
             //白名单or黑名单
-
+            whiteList(exchange);
             //获取请求头参数
             RequestHead<String, ConsumerCache> head = getHeadInfos(exchange);
             //初始化调度器
@@ -67,36 +63,16 @@ public class TokenFilter implements GlobalFilter, Ordered {
             //创建令牌
             rspSigntaure = bulidToken(isAuth, jwtBaseAuth, head);
 
-        } catch (BussinessException be){
-            odd = true;
-            errorBody = new ErrorBody(be.getErrorCode(),be.getErrorMessage());
         } catch (Exception e) {
-            log.error("Token 过滤器处理异常：",e);
-            odd = true;
-            errorBody = new ErrorBody("-1","System abnormality");
-        }finally {
-            //设置响应头
-            setRespHead(exchange,rspSigntaure);
+            log.error("Token auth fail ：",e);
         }
-        if(odd){
-            ServerHttpResponse originalResponse = exchange.getResponse();
-            byte[] response = JSON.toJSONString(errorBody).getBytes(StandardCharsets.UTF_8);
-            DataBuffer buffer = originalResponse.bufferFactory().wrap(response);
-            return originalResponse.writeWith(Flux.just(buffer));
-        }
-        return chain.filter(exchange);
-    }
-
-    @Override
-    public int getOrder() {
-        return -100;
+        return rspSigntaure;
     }
 
 
     private void whiteList(ServerWebExchange exchange){
         String url = exchange.getRequest().getURI().getPath();
     }
-
 
 
     private RequestHead<String, ConsumerCache> getHeadInfos(ServerWebExchange exchange)throws Exception{
@@ -112,15 +88,14 @@ public class TokenFilter implements GlobalFilter, Ordered {
 
 
 
-
     private void check(JwtBaseAuth jwtBaseAuth,RequestHead<String, ConsumerCache> head)throws Exception {
         Boolean isCheck = jwtBaseAuth.check(head);
         log.info("当前用户"+(isCheck ? "已" : "没有") + "保持登录");
         head.setIsLogin(isCheck);
-        if(head.getCacheInfo() != null)
+        if(head.getCacheInfo() != null) {
             head.getCacheInfo().setIsLogin(isCheck ? LOGIN : LOGOUT);
+        }
     }
-
 
 
 
@@ -133,18 +108,6 @@ public class TokenFilter implements GlobalFilter, Ordered {
     }
 
 
-
-    private void setRespHead(ServerWebExchange exchange,Signature rspSigntaure){
-        ServerHttpResponse originalResponse = exchange.getResponse();
-        originalResponse.setStatusCode(HttpStatus.OK);
-        HttpHeaders httpHeaders = originalResponse.getHeaders();
-        httpHeaders.add("Content-Type", "application/json;charset=UTF-8");
-        if(rspSigntaure == null) return;
-        httpHeaders.add("Authorization",rspSigntaure.getSgn());
-        httpHeaders.add("Consumer",rspSigntaure.getPld().getApt());
-        httpHeaders.add("Alg",rspSigntaure.getAlg());
-    }
-
     private Signature decrypt(RequestHead<String, ConsumerCache> head)throws Exception{
         if(!ENCRYPTION_AES.equals(head.getAlg())){
             throw new BussinessException("-1","加密方式不匹配，请重新选择。");
@@ -152,6 +115,7 @@ public class TokenFilter implements GlobalFilter, Ordered {
         //解密
         return jwtBaseAuth.decrypt(head);
     }
+
 
     private Boolean verify(Signature signature,RequestHead<String, ConsumerCache> head){
         if(head.getCacheInfo() != null){
@@ -161,6 +125,19 @@ public class TokenFilter implements GlobalFilter, Ordered {
         }
     }
 
+
+    public ServerWebExchange initResponseHead(ServerWebExchange exchange ){
+        Signature rspSigntaure = exchange.getAttribute("passSign");
+        ServerHttpResponse originalResponse = exchange.getResponse();
+        HttpHeaders respHeaders = originalResponse.getHeaders();
+        originalResponse.setStatusCode(HttpStatus.OK);
+        respHeaders.get("Content-Type").clear();
+        respHeaders.add("Content-Type", "application/json;charset=UTF-8");
+        respHeaders.add("Authorization",rspSigntaure.getSgn());
+        respHeaders.add("Consumer",rspSigntaure.getPld().getAud());
+        respHeaders.add("Alg",rspSigntaure.getAlg());
+        return exchange;
+    }
 
 }
 

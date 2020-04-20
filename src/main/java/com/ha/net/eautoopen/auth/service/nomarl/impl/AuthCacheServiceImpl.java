@@ -28,7 +28,8 @@ public class AuthCacheServiceImpl implements AuthCacheService {
      */
     @Override
     public String getConsumerKey(String consumer) throws Exception {
-        return redisTemplate.opsForValue().get(consumer+CONSUMER_CONFIG_KEY);
+//        return redisTemplate.opsForValue().get(consumer+CONSUMER_CONFIG_KEY);
+        return "wdm-key";
     }
 
 

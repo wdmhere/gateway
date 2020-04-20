@@ -12,8 +12,8 @@ public class CacheConstant {
     public static final String EXPIRATION_TIME_LONG = "30";  //token失效时间 单位：天
 
 
-    public static final String CONSUMER_CACHE = "CONSUMERCACHE";//原始key
-    public static final String CONSUMER_CONFIG_KEY = "CONSUMERCONFIGKEY";
+    public static final String CONSUMER_CACHE = "CONSUMERCACHE";//动态缓存KEY
+    public static final String CONSUMER_CONFIG_KEY = "CONSUMERCONFIGKEY";//原始key
     public static final String CONSUMER_STATUS_INFOS = "CONSUMERSTATUS";
     public static final String CONSUMER_TOKEN = "CONSUMERTOKEN";
 }
