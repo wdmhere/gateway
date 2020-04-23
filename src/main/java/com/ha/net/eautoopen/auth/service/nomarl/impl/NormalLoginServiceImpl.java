@@ -93,7 +93,7 @@ public class NormalLoginServiceImpl extends BaseAuthService implements NormalLog
     }
 
 
-    private void setKeyMap(String name, String key){
+    private void setKeyMap(String name, String key)throws Exception{
         if(keyMap == null)
             keyMap = new HashMap<String,String>();
         keyMap.put(name+CONSUMER_CONFIG_KEY,key);

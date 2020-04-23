@@ -1,4 +1,4 @@
-package com.ha.net.eautoopen.controller;
+package com.ha.net.eautoopen.fallback;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;

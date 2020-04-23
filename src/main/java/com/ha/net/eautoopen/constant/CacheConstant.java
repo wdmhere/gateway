@@ -8,12 +8,12 @@ public class CacheConstant {
     public static final String ENCRYPTION_AES = "01";  //加密方式
     public static final String HA = "HA";
 
-    public static final Long EXPIRATION_TIME = 60*60*1000L;  //token刷新时间 单位：分钟
     public static final String EXPIRATION_TIME_LONG = "30";  //token失效时间 单位：天
 
-
+    public static final String CONSUMER_TOKEN_LOCK = "CONSUMER_TOKEN_LOCK";
     public static final String CONSUMER_CACHE = "CONSUMERCACHE";//动态缓存KEY
     public static final String CONSUMER_CONFIG_KEY = "CONSUMERCONFIGKEY";//原始key
-    public static final String CONSUMER_STATUS_INFOS = "CONSUMERSTATUS";
-    public static final String CONSUMER_TOKEN = "CONSUMERTOKEN";
+    public static final String CONSUMER_PASS = "CONSUMERPASS";//认证过的用户信息
+
+
 }

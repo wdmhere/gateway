@@ -10,7 +10,7 @@ public interface AuthCacheService {
 
     public void initConsumerCache(String consumer,String infos) throws Exception;
 
-    public void setConsumerCache(String consumer,String infos) throws Exception;
+    public Boolean setConsumerCache(String consumer,String infos) throws Exception;
 
 
 

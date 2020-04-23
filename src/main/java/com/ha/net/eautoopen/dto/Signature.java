@@ -10,4 +10,6 @@ public class Signature {
     private Payload pld;
     //签名
     private String sgn;
+    //约定私钥
+    private String pky;
 }

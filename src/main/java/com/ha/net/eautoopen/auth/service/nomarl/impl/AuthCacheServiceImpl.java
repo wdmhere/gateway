@@ -53,7 +53,7 @@ public class AuthCacheServiceImpl implements AuthCacheService {
 
     @Override
     public void initConsumerCache(String consumer, String infos) throws Exception {
-        redisTemplate.opsForValue().set(consumer+CONSUMER_CACHE,infos,Long.valueOf(EXPIRATION_TIME_LONG),TimeUnit.DAYS);
+        redisTemplate.opsForValue().setIfAbsent(consumer+CONSUMER_CACHE,infos,Long.valueOf(EXPIRATION_TIME_LONG),TimeUnit.DAYS);
     }
 
     /**
@@ -63,8 +63,14 @@ public class AuthCacheServiceImpl implements AuthCacheService {
      * @throws Exception
      */
     @Override
-    public void setConsumerCache(String consumer, String infos) throws Exception {
-        redisTemplate.opsForValue().set(consumer+CONSUMER_CACHE,infos);
+    public Boolean setConsumerCache(String consumer, String infos) throws Exception {
+
+        Boolean flag = redisTemplate.opsForValue().setIfAbsent(consumer+CONSUMER_TOKEN_LOCK,CONSUMER_TOKEN_LOCK,60*1000L,TimeUnit.MILLISECONDS);
+        log.debug("该线程"+(flag ? "已" : "没有") + "获取到刷新动态密钥的锁");
+        if(flag){
+            redisTemplate.opsForValue().set(consumer+CONSUMER_CACHE,infos);
+        }
+        return flag;
     }
 
 

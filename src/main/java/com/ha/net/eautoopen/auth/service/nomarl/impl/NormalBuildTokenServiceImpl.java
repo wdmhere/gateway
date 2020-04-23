@@ -14,6 +14,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.math.RandomUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cloud.context.config.annotation.RefreshScope;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -23,8 +25,12 @@ import java.util.UUID;
 import static com.ha.net.eautoopen.constant.CacheConstant.*;
 
 @Slf4j
+@RefreshScope
 @Service
 public class NormalBuildTokenServiceImpl extends BaseAuthService implements NormalBuildTokenService {
+
+    @Value("${sign.expiration.time:60}")
+    private String EXPIRATION_TIME;  //token刷新时间 单位：分钟
 
     @Autowired
     private AuthCacheService authCacheService;
@@ -33,7 +39,7 @@ public class NormalBuildTokenServiceImpl extends BaseAuthService implements Norm
     @Override
     public Signature firstBuild(String consumer, ConsumerCache consumerCache) throws Exception {
 
-        String consumerKey = getConsumerKey(consumer+CONSUMER_CONFIG_KEY);
+        String consumerKey = getConsumerKey(consumer);
 
         ConsumerCache cache = initConsumerCache(consumerCache);
 
@@ -73,7 +79,9 @@ public class NormalBuildTokenServiceImpl extends BaseAuthService implements Norm
         Signature signature = new Signature();
         String dyn = buildDyn(consumer);
         String jti = String.valueOf(RandomUtils.nextInt());
+        log.info("当前动态密钥为：" + dyn + " ; Token id ：" + jti);
         Long nowTime = System.currentTimeMillis();
+        signature.setPky(getConsumerKey(consumer));
         signature.setAlg(ENCRYPTION_AES);
         Payload payload = new Payload();
         payload.setApt(consumer);
@@ -104,6 +112,7 @@ public class NormalBuildTokenServiceImpl extends BaseAuthService implements Norm
     private Signature pakage2(String consumer,ConsumerCache consumerCache) throws Exception {
         Signature signature = new Signature();
         signature.setAlg(ENCRYPTION_AES);
+        signature.setPky(consumerCache.getSign());
         Payload payload = new Payload();
         payload.setApt(consumer);
         payload.setAud(consumer);
@@ -112,7 +121,7 @@ public class NormalBuildTokenServiceImpl extends BaseAuthService implements Norm
         Boolean isExpired = false;
         Long nowTime = System.currentTimeMillis();
         if(StringUtils.hasText(consumerCache.getTime()) && Long.valueOf(consumerCache.getTime()) > 0L &&
-                nowTime - Long.valueOf(consumerCache.getTime()) > EXPIRATION_TIME ){
+                nowTime - Long.valueOf(consumerCache.getTime()) > (Long.valueOf(EXPIRATION_TIME)*60*1000L)){
             isExpired = true;
         }
         //过期需要重新生成新的
@@ -126,11 +135,11 @@ public class NormalBuildTokenServiceImpl extends BaseAuthService implements Norm
             cache.setName(consumer);
             cache.setTime(String.valueOf(nowTime));
             //刷新缓存
-            refreshCache(consumer,cache);
-
-            payload.setDyn(dyn);
-            payload.setExp(DateCalcUtil.formatDatetime(new Date(nowTime)));
-            payload.setJti(jti);
+            if(refreshCache(consumer,cache)){
+                payload.setDyn(dyn);
+                payload.setExp(DateCalcUtil.formatDatetime(new Date(nowTime)));
+                payload.setJti(jti);
+            }
         }else {
             //没有过期则不处理
         }
@@ -165,8 +174,7 @@ public class NormalBuildTokenServiceImpl extends BaseAuthService implements Norm
      * @throws Exception
      */
     private String buildDyn(String consumer)throws Exception{
-        String dynKey = MD5Util.encoderMD5(consumer + "-" + getConsumerKey(consumer + CONSUMER_CONFIG_KEY) + "-" + UUID.randomUUID().toString()).substring(0, 16);
-        log.info("当前动态密钥为：" + dynKey);
+        String dynKey = MD5Util.encoderMD5(consumer + "-" + getConsumerKey(consumer) + "-" + UUID.randomUUID().toString()).substring(0, 16);
         return dynKey;
     }
 
@@ -190,14 +198,15 @@ public class NormalBuildTokenServiceImpl extends BaseAuthService implements Norm
      * @param consumer
      * @param consumerCache
      */
-    private void refreshCache(String consumer,ConsumerCache consumerCache){
+    private Boolean refreshCache(String consumer,ConsumerCache consumerCache){
         try {
             if(!StringUtils.hasText(consumerCache.getTime()))
                 throw new Exception("token缓存中失效时间为空！");
-            authCacheService.setConsumerCache(consumer,consumerCache != null ? JSON.toJSONString(consumerCache) : "");
+            return authCacheService.setConsumerCache(consumer,consumerCache != null ? JSON.toJSONString(consumerCache) : "");
         } catch (Exception e) {
             log.error("刷新用户状态缓存异常：",e);
         }
+        return false;
     }
 
 

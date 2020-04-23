@@ -127,17 +127,20 @@ public class RequestAuthTokeFilter {
 
 
     public ServerWebExchange initResponseHead(ServerWebExchange exchange ){
-        Signature rspSigntaure = exchange.getAttribute("passSign");
+        Signature rspSigntaure = exchange.getAttribute(CONSUMER_PASS);
         ServerHttpResponse originalResponse = exchange.getResponse();
         HttpHeaders respHeaders = originalResponse.getHeaders();
         originalResponse.setStatusCode(HttpStatus.OK);
-        respHeaders.get("Content-Type").clear();
+        respHeaders.clear();
         respHeaders.add("Content-Type", "application/json;charset=UTF-8");
         respHeaders.add("Authorization",rspSigntaure.getSgn());
         respHeaders.add("Consumer",rspSigntaure.getPld().getAud());
         respHeaders.add("Alg",rspSigntaure.getAlg());
+
         return exchange;
     }
+
+
 
 }
 
